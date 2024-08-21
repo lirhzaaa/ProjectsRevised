@@ -161,127 +161,105 @@
         }
     
         function displayRecords(data) {
-            const recordsDiv = document.getElementById('records');
-            let table = '';
+    const recordsDiv = document.getElementById('records');
+    let table = '';
     
-            const groupedData = {};
-            let counter = 1; // Initialize the counter
+    // Grupkan data berdasarkan user_id dan tanggal (tanpa waktu)
+    const groupedData = {};
+    data.forEach(record => {
+        const user_id = record.user_id;
+        const dateOnly = record.datetime.split(' ')[0]; // Ambil hanya tanggal
     
-            data.forEach(record => {
-                const user_id = record.user_id;
-                const datetime = record.datetime;
-                const key = `${user_id}_${datetime}`;
-    
-                if (!groupedData[key]) {
-                    groupedData[key] = {
-                        id: record.id,
-                        user_id: record.user_id,
-                        full_name: record.full_name,
-                        check_in: null,
-                        check_out: null,
-                        attendance_status: null,
-                        is_late_in: null
-                    };
-                }
-    
-                if (record.check_type == 0) { // Check In
-                    groupedData[key].check_in = record.datetime;
-                    groupedData[key].is_late_in = isLate(new Date(record.datetime));
-                } else if (record.check_type == 1) { // Check Out
-                    // Check if check-in already exists with the same datetime
-                    if (groupedData[key].check_in === record.datetime) {
-                        groupedData[key].check_in = null; // Remove check-in if times are the same
-                    } else {
-                        groupedData[key].check_out = record.datetime;
-                    }
-                }
-            });
-    
-            // Merge records with the same timestamp into check-in or check-out
-            const mergedData = {};
-            Object.values(groupedData).forEach(record => {
-                const userKey = record.user_id;
-                const dateOnly = record.check_in ? record.check_in.split(' ')[0] : (record.check_out ? record.check_out.split(' ')[0] : '');
-    
-                if (!mergedData[userKey]) {
-                    mergedData[userKey] = {};
-                }
-    
-                if (dateOnly) {
-                    if (!mergedData[userKey][dateOnly]) {
-                        mergedData[userKey][dateOnly] = { ...record };
-                    } else {
-                        // Merge records with the same timestamp
-                        if (record.check_in && !mergedData[userKey][dateOnly].check_in) {
-                            mergedData[userKey][dateOnly].check_in = record.check_in;
-                            mergedData[userKey][dateOnly].is_late_in = record.is_late_in;
-                        }
-                        if (record.check_out && !mergedData[userKey][dateOnly].check_out) {
-                            mergedData[userKey][dateOnly].check_out = record.check_out;
-                        }
-                    }
-                }
-            });
-    
-            // Flatten mergedData for table display
-            Object.keys(mergedData).forEach(user_id => {
-                Object.keys(mergedData[user_id]).forEach(dateOnly => {
-                    const record = mergedData[user_id][dateOnly];
-                    let no = counter;
-                    counter++;
-    
-                    if (record.check_in && record.check_out) {
-                        record.attendance_status = 'Present';
-                    } else if (record.check_in) {
-                        record.attendance_status = 'Belum Checkout';
-                    } else if (record.check_out) {
-                        record.attendance_status = 'Belum Checkin';
-                    } else {
-                        record.attendance_status = 'Absent';
-                    }
-    
-                    let isLateIn = record.check_in ? record.is_late_in : '-';
-    
-                    table += `<tr>
-                        <td>${no}</td>
-                        <td><input type="text" value="${record.user_id}" id="user_id_${record.id}" class="form-control"></td>
-                        <td>${record.full_name}</td>
-                        <td><input type="datetime-local" value="${record.check_in ? record.check_in.replace(' ', 'T') : ''}" id="datetime_${record.id}_in" class="form-control datetimepicker"></td>
-                        <td><input type="datetime-local" value="${record.check_out ? record.check_out.replace(' ', 'T') : ''}" id="datetime_${record.id}_out" class="form-control datetimepicker"></td>
-                        <td>
-                            <select id="attendance_status_${record.id}" class="form-control">
-                                <option value="0" ${record.attendance_status === 'Absent' ? 'selected' : ''}>Absent</option>
-                                <option value="1" ${record.attendance_status === 'Present' ? 'selected' : ''}>Present</option>
-                                <option value="2" ${record.attendance_status === 'Izin' ? 'selected' : ''}>Izin</option>
-                                <option value="3" ${record.attendance_status === 'Sakit' ? 'selected' : ''}>Sakit</option>
-                                <option value="4" ${record.attendance_status === 'Alfa' ? 'selected' : ''}>Alfa</option>
-                                <option value="5" ${record.attendance_status === 'Belum Checkout' ? 'selected' : ''}>Belum Checkout</option>
-                                <option value="6" ${record.attendance_status === 'Belum Checkin' ? 'selected' : ''}>Belum Checkin</option>
-                            </select>
-                        </td>
-                        <td>${isLateIn}</td>
-                        <td>
-                            <button onclick="saveRecord(${record.id})" class="btn btn-primary">
-                                <i class="fas fa-pen"></i> Save Change
-                            </button>
-                        </td>
-                    </tr>`;
-                });
-            });
-    
-            if (Object.keys(mergedData).length === 0) {
-                table += '<tr><td colspan="8" class="text-center">No records found.</td></tr>';
-            }
-    
-            table = `<table class="table table-bordered"><tr><th>No</th><th>User ID</th><th>Full Name</th><th>Check In</th><th>Check Out</th><th>Attendance Status</th><th>Late Status (In)</th><th>Actions</th></tr>${table}</table>`;
-            recordsDiv.innerHTML = table;
-    
-            flatpickr('.datetimepicker', {
-                enableTime: true,
-                dateFormat: 'Y-m-d H:i',
-            });
+        // Buat grup jika belum ada
+        if (!groupedData[user_id]) {
+            groupedData[user_id] = {};
+        }
+        if (!groupedData[user_id][dateOnly]) {
+            groupedData[user_id][dateOnly] = {
+                user_id: record.user_id,
+                full_name: record.full_name,
+                check_in: null,
+                check_out: null,
+                attendance_status: 'Absent',
+                is_late_in: '-'
+            };
         }
     
+        // Tetapkan check_in atau check_out berdasarkan check_type
+        if (record.check_type == 0) { // Check In
+            groupedData[user_id][dateOnly].check_in = record.datetime;
+            groupedData[user_id][dateOnly].is_late_in = isLate(new Date(record.datetime));
+        } else if (record.check_type == 1) { // Check Out
+            groupedData[user_id][dateOnly].check_out = record.datetime;
+        }
+    });
+    
+    // Iterasi data yang telah digrouping dan tentukan status kehadiran
+    let counter = 1;
+    Object.keys(groupedData).forEach(user_id => {
+        Object.keys(groupedData[user_id]).forEach(dateOnly => {
+            const record = groupedData[user_id][dateOnly];
+    
+            // Tentukan status kehadiran berdasarkan apakah check-in dan check-out ada
+            if (record.check_in && record.check_out) {
+                record.attendance_status = 'Present';
+            } else if (record.check_in) {
+                record.attendance_status = 'Belum Checkout';
+            } else if (record.check_out) {
+                record.attendance_status = 'Belum Checkin';
+            } else {
+                record.attendance_status = 'Absent';
+            }
+    
+            // Buat baris tabel untuk setiap record
+            table += `<tr>
+                <td>${counter}</td>
+                <td><input type="text" value="${record.user_id}" id="user_id_${counter}" class="form-control"></td>
+                <td>${record.full_name}</td>
+                <td><input type="datetime-local" value="${record.check_in ? record.check_in.replace(' ', 'T') : ''}" id="datetime_${counter}_in" class="form-control datetimepicker"></td>
+                <td><input type="datetime-local" value="${record.check_out ? record.check_out.replace(' ', 'T') : ''}" id="datetime_${counter}_out" class="form-control datetimepicker"></td>
+                <td>
+                    <select id="attendance_status_${counter}" class="form-control">
+                        <option value="0" ${record.attendance_status === 'Absent' ? 'selected' : ''}>Absent</option>
+                        <option value="1" ${record.attendance_status === 'Present' ? 'selected' : ''}>Present</option>
+                        <option value="2" ${record.attendance_status === 'Izin' ? 'selected' : ''}>Izin</option>
+                        <option value="3" ${record.attendance_status === 'Sakit' ? 'selected' : ''}>Sakit</option>
+                        <option value="4" ${record.attendance_status === 'Alfa' ? 'selected' : ''}>Alfa</option>
+                        <option value="5" ${record.attendance_status === 'Belum Checkout' ? 'selected' : ''}>Belum Checkout</option>
+                        <option value="6" ${record.attendance_status === 'Belum Checkin' ? 'selected' : ''}>Belum Checkin</option>
+                    </select>
+                </td>
+                <td>${record.is_late_in}</td>
+                <td>
+                    <button onclick="saveRecord(${record.check_in?.id || 'null'}, ${record.check_out?.id || 'null'})" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </td>
+            </tr>`;
+            counter++;
+        });
+    });
+    
+    // Jika tidak ada data, tampilkan pesan kosong
+    if (counter === 1) {
+        table += '<tr><td colspan="8" class="text-center">No records found.</td></tr>';
+    }
+    
+    // Bungkus tabel dengan elemen tabel HTML
+    table = `<table class="table table-bordered">
+        <tr><th>No</th><th>User ID</th><th>Full Name</th><th>Check In</th><th>Check Out</th><th>Attendance Status</th><th>Late Status (In)</th><th>Actions</th></tr>${table}
+    </table>`;
+    
+    // Tampilkan tabel di dalam elemen div
+    recordsDiv.innerHTML = table;
+    
+    // Inisialisasi kembali datepicker setelah tabel di-render
+    flatpickr('.datetimepicker', {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+    });
+}
+
         function isLate(datetime) {
             const checkInThresholdHour = 9;
             const checkInThresholdMinute = 30;
